@@ -264,8 +264,7 @@ def cifar10_resnet_v2_generator(resnet_size, num_classes, data_format=None):
     return model
 
 
-def imagenet_resnet_v2_generator(block_fn, layers, num_classes,
-                                                                 data_format=None):
+def imagenet_resnet_v2_generator(block_fn, layers, num_classes, data_format=None):
     """Generator for ImageNet ResNet v2 models.
     Args:
         block_fn: The block to use within the model, either `building_block` or
@@ -280,52 +279,58 @@ def imagenet_resnet_v2_generator(block_fn, layers, num_classes,
         returns the output tensor of the ResNet model.
     """
     if data_format is None:
-        data_format = (
-                'channels_first' if tf.test.is_built_with_cuda() else 'channels_last')
+        data_format = ('channels_first' if tf.test.is_built_with_cuda() else 'channels_last')
 
     def model(inputs, is_training):
         """Constructs the ResNet model given the inputs."""
         if data_format == 'channels_first':
-            # Convert the inputs from channels_last (NHWC) to channels_first (NCHW).
-            # This provides a large performance boost on GPU. See
-            # https://www.tensorflow.org/performance/performance_guide#data_formats
-            inputs = tf.transpose(inputs, [0, 3, 1, 2])
+            with tf.name_scope('NHWC_TO_NCHW'):
+                # Convert the inputs from channels_last (NHWC) to channels_first (NCHW).
+                # This provides a large performance boost on GPU. See
+                # https://www.tensorflow.org/performance/performance_guide#data_formats
+                inputs = tf.transpose(inputs, [0, 3, 1, 2])
 
-        inputs = conv2d_fixed_padding(
-                inputs=inputs, filters=64, kernel_size=7, strides=2,
-                data_format=data_format)
-        inputs = tf.identity(inputs, 'initial_conv')
-        inputs = tf.layers.max_pooling2d(
-                inputs=inputs, pool_size=3, strides=2, padding='SAME',
-                data_format=data_format)
-        inputs = tf.identity(inputs, 'initial_max_pool')
+        with tf.name_scope('INITIAL_CONV'):
+            inputs = conv2d_fixed_padding(
+                    inputs=inputs, filters=64, kernel_size=7, strides=2,
+                    data_format=data_format)
+            inputs = tf.identity(inputs, 'initial_conv')
+            inputs = tf.layers.max_pooling2d(
+                    inputs=inputs, pool_size=3, strides=2, padding='SAME',
+                    data_format=data_format)
+            inputs = tf.identity(inputs, 'initial_max_pool')
 
-        inputs = block_layer(
-                inputs=inputs, filters=64, block_fn=block_fn, blocks=layers[0],
-                strides=1, is_training=is_training, name='block_layer1',
-                data_format=data_format)
-        inputs = block_layer(
-                inputs=inputs, filters=128, block_fn=block_fn, blocks=layers[1],
-                strides=2, is_training=is_training, name='block_layer2',
-                data_format=data_format)
-        inputs = block_layer(
-                inputs=inputs, filters=256, block_fn=block_fn, blocks=layers[2],
-                strides=2, is_training=is_training, name='block_layer3',
-                data_format=data_format)
-        inputs = block_layer(
-                inputs=inputs, filters=512, block_fn=block_fn, blocks=layers[3],
-                strides=2, is_training=is_training, name='block_layer4',
-                data_format=data_format)
+        with tf.name_scope('BLOCK_1'):
+            inputs = block_layer(
+                    inputs=inputs, filters=64, block_fn=block_fn, blocks=layers[0],
+                    strides=1, is_training=is_training, name='block_layer1',
+                    data_format=data_format)
+        with tf.name_scope('BLOCK_2'):
+            inputs = block_layer(
+                    inputs=inputs, filters=128, block_fn=block_fn, blocks=layers[1],
+                    strides=2, is_training=is_training, name='block_layer2',
+                    data_format=data_format)
+        with tf.name_scope('BLOCK_3'):
+            inputs = block_layer(
+                    inputs=inputs, filters=256, block_fn=block_fn, blocks=layers[2],
+                    strides=2, is_training=is_training, name='block_layer3',
+                    data_format=data_format)
+        with tf.name_scope('BLOCK_4'):
+            inputs = block_layer(
+                    inputs=inputs, filters=512, block_fn=block_fn, blocks=layers[3],
+                    strides=2, is_training=is_training, name='block_layer4',
+                    data_format=data_format)
 
-        inputs = batch_norm_relu(inputs, is_training, data_format)
-        inputs = tf.layers.average_pooling2d(
-                inputs=inputs, pool_size=7, strides=1, padding='VALID',
-                data_format=data_format)
-        inputs = tf.identity(inputs, 'final_avg_pool')
-        inputs = tf.reshape(inputs,
-                                                [-1, 512 if block_fn is building_block else 2048])
-        inputs = tf.layers.dense(inputs=inputs, units=num_classes)
-        inputs = tf.identity(inputs, 'final_dense')
+        with tf.name_scope('FINAL'):
+            inputs = batch_norm_relu(inputs, is_training, data_format)
+            inputs = tf.layers.average_pooling2d(
+                    inputs=inputs, pool_size=7, strides=1, padding='VALID',
+                    data_format=data_format)
+            inputs = tf.identity(inputs, 'final_avg_pool')
+            inputs = tf.reshape(inputs, [-1, inputs.shape[1] * inputs.shape[2] * inputs.shape[3]])
+            #inputs = tf.reshape(inputs, [-1, 512 if block_fn is building_block else 2048])
+            inputs = tf.layers.dense(inputs=inputs, units=num_classes)
+            inputs = tf.identity(inputs, 'final_dense')
         return inputs
 
     return model
