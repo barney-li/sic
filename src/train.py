@@ -19,6 +19,7 @@ def model():
     with tf.name_scope('reshape'):
         x_in = tf.placeholder(tf.float32)
         y_in = tf.placeholder(tf.float32)
+        learning_rate_in = tf.placeholder(tf.float32)
         x = tf.image.resize_image_with_crop_or_pad(tf.reshape(x_in, [-1, 75, 75, 3]), 256, 256)
         y = tf.reshape(y_in, [-1, 2])
     with tf.name_scope('resnet'):
@@ -26,13 +27,13 @@ def model():
         y_ = y_generator(x, True)
     with tf.name_scope('cost'):
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_, labels=y))
-    with tf.name_scope('optimizer'):
-        optimizer = tf.train.AdamOptimizer(1e-4).minimize(cost)
     with tf.name_scope('accuracy'):
         correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
         correct_prediction = tf.cast(correct_prediction, tf.float32)
         accuracy = tf.reduce_mean(correct_prediction)
-    return x_in, y_in, y_, cost, accuracy, optimizer
+    with tf.name_scope('optimizer'):
+        optimizer = tf.train.AdamOptimizer(learning_rate_in).minimize(cost)
+    return x_in, y_in, y_, cost, accuracy, optimizer, learning_rate_in
 
 
 def ia(start_index, end_index, output):
@@ -76,34 +77,64 @@ def combine_ia(output_list):
     np.save('../data/train_y.npy', y)
 
 
-def train(ia_output):
-    print('training')
+def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt):
+    if ckpt is None:
+        print('training')
+        x_in, y_in, y_, cost, accuracy, optimizer, learning_rate_in = model()
+    else:
+        print('training from ckpt {}'.format(ckpt))
+
     train_x, train_y, test_x, test_y = get_ia(ia_output)
-    x_in, y_in, y_, cost, accuracy, optimizer = model()
+
     with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        tf.add_to_collection('accuracy', accuracy)
-        tf.add_to_collection('y_', y_)
-        tf.add_to_collection('x_in', x_in)
-        tf.add_to_collection('y_in', y_in)
+        if ckpt is None:
+            sess.run(tf.global_variables_initializer())
+            tf.add_to_collection('cost', cost)
+            tf.add_to_collection('y_', y_)
+            tf.add_to_collection('x_in', x_in)
+            tf.add_to_collection('y_in', y_in)
+            tf.add_to_collection('optimizer', optimizer)
+            tf.add_to_collection('learning_rate_in', learning_rate_in)
+            tf.add_to_collection('accuracy', accuracy)
+        else:
+            print('loading ckpt {}'.format(ckpt))
+            saver = tf.train.import_meta_graph('../models/{}.ckpt.meta'.format(ckpt))
+            saver.restore(sess, '../models/{}.ckpt'.format(ckpt))
+            print('ckpt loaded')
+            cost = tf.get_collection('cost')[0]
+            y_ = tf.get_collection('y_')[0]
+            x_in = tf.get_collection('x_in')[0]
+            y_in = tf.get_collection('y_in')[0]
+            optimizer = tf.get_collection('optimizer')[0]
+            learning_rate_in = tf.get_collection('learning_rate_in')[0]
+            accuracy = tf.get_collection('accuracy')[0]
+
         # epoch
-        batch_size = 64
-        for i in range(1000):
-            for j in range(int(train_x.shape[0] / 64)):
-                x_batch = train_x[j * batch_size: (j + 1) * batch_size]
-                y_batch = train_y[j * batch_size: (j + 1) * batch_size]
-                sess.run(optimizer, feed_dict={x_in: x_batch, y_in: y_batch})
+        if epoch_size is None:
+            epoch_size = int(train_x.shape[0] / 64)
+        print('start training, batch size {}, epoch size {}'.format(batch_size, epoch_size))
+        for epoch in range(fold_size):
+            for batch in range(epoch_size):
+                x_batch = train_x[batch * batch_size: (batch + 1) * batch_size]
+                y_batch = train_y[batch * batch_size: (batch + 1) * batch_size]
+                sess.run(optimizer, feed_dict={x_in: x_batch, y_in: y_batch, learning_rate_in: learning_rate})
                 # print('epoch {} batch {}'.format(i, j))
             # print accuracy after each epoch
-            train_accuracy = accuracy.eval(session=sess,
-                                           feed_dict={
-                                               x_in: x_batch, y_in: y_batch
-                                           })
-            print('epoch {}, training accuracy {}'.format(i, train_accuracy))
+            train_accuracy = 0
+            for batch in range(epoch_size):
+                x_batch = train_x[batch * batch_size: (batch + 1) * batch_size]
+                y_batch = train_y[batch * batch_size: (batch + 1) * batch_size]
+                train_accuracy += accuracy.eval(session=sess,
+                                               feed_dict={
+                                                   x_in: x_batch, y_in: y_batch
+                                               })
+            train_accuracy /= int(epoch_size)
+            print('epoch {}, training accuracy {}'.format(epoch, train_accuracy))
             print('test accuracy {}'.format(accuracy.eval(session=sess, feed_dict={x_in: test_x, y_in: test_y})))
             saver = tf.train.Saver()
-            saved_path = saver.save(sess, '../models/{}.ckpt'.format(i))
-            print('model saved to {}'.format(saved_path))
+            print('saving ckpt...')
+            saved_path = saver.save(sess, '../models/{}.ckpt'.format(epoch))
+            print('ckpt {} saved'.format(saved_path))
 
 
 def keep_train(ckpt, ia_output):
@@ -143,9 +174,14 @@ if __name__ == '__main__':
     parser.add_argument('--ia_end', type=int)
     parser.add_argument('--ia_output', type=str, default='')
     parser.add_argument('-l', '--ia_output_list', nargs='+', type=str, default='')
+    parser.add_argument('--epoch_size', type=int)
+    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--fold_size', type=int, default=1000)
+    parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument('--ckpt', type=str)
     args = parser.parse_args()
     if args.mode == 'train':
-        train(args.ia_output)
+        train(args.ia_output, args.batch_size, args.epoch_size, args.fold_size, args.learning_rate, args.ckpt)
     elif args.mode == 'ia':
         ia(args.ia_start, args.ia_end, args.ia_output)
     elif args.mode == 'combine_ia':
