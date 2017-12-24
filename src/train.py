@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 import resnet_model
 import data_augment_utils as utils
+import argparse
 import os
 
 
@@ -11,6 +12,7 @@ def get_sic_training_data(path='../data/train.json'):
     return np.array(train_data['band_1'].tolist()), \
            np.array(train_data['band_2'].tolist()), \
            np.array(train_data['is_iceberg'].tolist())
+
 
 def model():
     with tf.name_scope('reshape'):
@@ -32,9 +34,12 @@ def model():
     return x_in, y_in, y_, cost, accuracy, optimizer
 
 
-def get_format_train_data():
+def ia(start_index, end_index, output):
     print('getting training data...')
     c1, c2, y = get_sic_training_data()
+    c1 = c1[start_index:end_index]
+    c2 = c2[start_index:end_index]
+    y = y[start_index:end_index]
     print('concatenate channels...')
     c12 = np.concatenate((c1, c1, c2), axis=1)
     print('formatting images...')
@@ -42,19 +47,21 @@ def get_format_train_data():
     print('formatting labels...')
     fmt_lb = utils.format_label(y)
     print('image augmentation...')
-    total_x, total_y = utils.ia(fmt_img, fmt_lb)
-    np.save('../data/train_x.npy', total_x)
-    np.save('../data/train_y.npy', total_y)
-    test_x = total_x[0:200]
-    test_y = total_y[0:200]
-    train_x = total_x[200:]
-    train_y = total_y[200:]
-    return train_x, train_y, test_x, test_y
+    train_x, train_y = utils.ia(fmt_img, fmt_lb)
+    np.save('../data/train_x_{}.npy'.format(output), train_x)
+    np.save('../data/train_y_{}.npy'.format(output), train_y)
+    return train_x, train_y
+
+
+def get_ia():
+    x = np.load('../data/train_x.npy')
+    y = np.load('../data/train_y.npy')
+    return x[200:], y[200:], x[0:200], y[0:200]
 
 
 def train():
     print('training')
-    train_x, train_y, test_x, test_y = get_format_train_data()
+    train_x, train_y, test_x, test_y = get_ia()
     x_in, y_in, y_, cost, accuracy, optimizer = model()
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -79,6 +86,7 @@ def train():
             saver = tf.train.Saver()
             saved_path = saver.save(sess, '../models/{}.ckpt'.format(i))
             print('model saved to {}'.format(saved_path))
+
 
 def keep_train(ckpt):
     train_x, train_y, test_x, test_y = get_format_train_data()
@@ -108,5 +116,15 @@ def keep_train(ckpt):
             saved_path = saver.save(sess, '../models/{}.ckpt'.format(i))
             print('model saved to {}'.format(saved_path))
 
+
 if __name__ == '__main__':
-    train()
+    parser = argparse.ArgumentParser(description='train cnn for sic problem')
+    parser.add_argument('-m', '--mode', type=str, choices=['train', 'ia'], default='train')
+    parser.add_argument('--ia_start', type=int)
+    parser.add_argument('--ia_end', type=int)
+    parser.add_argument('--ia_output', type=str, default='')
+    args = parser.parse_args()
+    if args.mode == 'train':
+        train()
+    elif args.mode == 'ia':
+        ia(args.ia_start, args.ia_end, args.ia_output)
