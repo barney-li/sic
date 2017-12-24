@@ -5,6 +5,7 @@ import resnet_model
 import data_augment_utils as utils
 import argparse
 import os
+import math
 
 
 def get_sic_training_data(path='../data/train.json'):
@@ -53,9 +54,9 @@ def ia(start_index, end_index, output):
     return train_x, train_y
 
 
-def get_ia():
-    x = np.load('../data/train_x.npy')
-    y = np.load('../data/train_y.npy')
+def get_ia(ia_output):
+    x = np.load('../data/train_x_{}.npy'.format(ia_output))
+    y = np.load('../data/train_y_{}.npy'.format(ia_output))
     return x[200:], y[200:], x[0:200], y[0:200]
 
 
@@ -75,9 +76,9 @@ def combine_ia(output_list):
     np.save('../data/train_y.npy', y)
 
 
-def train():
+def train(ia_output):
     print('training')
-    train_x, train_y, test_x, test_y = get_ia()
+    train_x, train_y, test_x, test_y = get_ia(ia_output)
     x_in, y_in, y_, cost, accuracy, optimizer = model()
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -87,11 +88,12 @@ def train():
         tf.add_to_collection('y_in', y_in)
         # epoch
         batch_size = 64
-        for i in range(1001):
+        for i in range(1000):
             for j in range(int(train_x.shape[0] / 64)):
                 x_batch = train_x[j * batch_size: (j + 1) * batch_size]
                 y_batch = train_y[j * batch_size: (j + 1) * batch_size]
                 sess.run(optimizer, feed_dict={x_in: x_batch, y_in: y_batch})
+                # print('epoch {} batch {}'.format(i, j))
             # print accuracy after each epoch
             train_accuracy = accuracy.eval(session=sess,
                                            feed_dict={
@@ -104,8 +106,9 @@ def train():
             print('model saved to {}'.format(saved_path))
 
 
-def keep_train(ckpt):
-    train_x, train_y, test_x, test_y = get_format_train_data()
+def keep_train(ckpt, ia_output):
+    print('keep training...')
+    train_x, train_y, test_x, test_y = get_ia(ia_output)
     with tf.Session() as sess:
         saver = tf.train.import_meta_graph('../models/{}.ckpt.meta'.format(ckpt))
         saver.restore(sess, '../models/{}.ckpt'.format(ckpt))
@@ -142,7 +145,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--ia_output_list', nargs='+', type=str, default='')
     args = parser.parse_args()
     if args.mode == 'train':
-        train()
+        train(args.ia_output)
     elif args.mode == 'ia':
         ia(args.ia_start, args.ia_end, args.ia_output)
     elif args.mode == 'combine_ia':
