@@ -64,9 +64,11 @@ def ia_simple(start_index, end_index, output):
     y = y[start_index:end_index]
     print('concatenate channels...')
     c12 = np.concatenate((c1, c2), axis=1)
+    print('one-hot labels...')
+    y_onehot = utils.format_label(y)
     np.save('../data/train_x_{}.npy'.format(output), c12)
-    np.save('../data/train_y_{}.npy'.format(output), y)
-    return c12, y
+    np.save('../data/train_y_{}.npy'.format(output), y_onehot)
+    return c12, y_onehot
 
 
 def ia(start_index, end_index, output):
