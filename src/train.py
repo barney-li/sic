@@ -56,6 +56,19 @@ def model():
     return ret
 
 
+def ia_simple(start_index, end_index, output):
+    print('getting training data...')
+    c1, c2, y = get_sic_training_data()
+    c1 = c1[start_index:end_index]
+    c2 = c2[start_index:end_index]
+    y = y[start_index:end_index]
+    print('concatenate channels...')
+    c12 = np.concatenate((c1, c2), axis=1)
+    np.save('../data/train_x_{}.npy'.format(output), c12)
+    np.save('../data/train_y_{}.npy'.format(output), y)
+    return c12, y
+
+
 def ia(start_index, end_index, output):
     print('getting training data...')
     c1, c2, y = get_sic_training_data()
@@ -79,35 +92,6 @@ def get_ia(ia_output):
     x = np.load('../data/train_x_{}.npy'.format(ia_output))
     y = np.load('../data/train_y_{}.npy'.format(ia_output))
     return x[200:], y[200:], x[0:200], y[0:200]
-
-
-def combine_ia(output_list):
-    x = None
-    y = None
-    for i in output_list:
-        x1 = np.load('../data/train_x_{}.npy'.format(i))
-        y1 = np.load('../data/train_y_{}.npy'.format(i))
-        if x is not None:
-            x = np.concatenate((x, x1))
-            y = np.concatenate((y, y1))
-        else:
-            x = x1
-            y = y1
-    np.save('../data/train_x.npy', x)
-    np.save('../data/train_y.npy', y)
-
-
-# A function to generate a random permutation of arr[]
-def randomize(arr, n):
-    # Start from the last element and swap one by one. We don't
-    # need to run for the first element that's why i > 0
-    for i in range(n - 1, 0, -1):
-        # Pick a random index from 0 to i
-        j = random.randint(0, i)
-
-        # Swap arr[i] with the element at random index
-        arr[i], arr[j] = arr[j], arr[i]
-    return arr
 
 
 def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir):
@@ -186,7 +170,6 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
                 x_batch = train_x[batch * batch_size: (batch + 1) * batch_size]
                 y_batch = train_y[batch * batch_size: (batch + 1) * batch_size]
                 sess.run(optimizer, feed_dict={x_in: x_batch, y_in: y_batch, learning_rate_in: learning_rate})
-                # print('epoch {} batch {}'.format(i, j))
             # print accuracy after each epoch
             trn_acc_labels = None
             trn_acc_logits = None
@@ -206,7 +189,7 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
                                                                        trn_acc_logits_in:trn_acc_logits,
                                                                        tst_acc_labels_in:test_y,
                                                                        tst_acc_logits_in:tst_acc_logits})
-            print('epoch {}'.format(epoch))
+            print('\nepoch {}'.format(epoch))
             print('train accuracy {} train cost {}'.format(trn_acc_out, trn_cost_out))
             print('test accuracy {} test cost {}'.format(tst_acc_out, tst_cost_out))
             writer.add_summary(summ_out, epoch)
@@ -216,54 +199,24 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
             print('ckpt {} saved'.format(saved_path))
 
 
-def keep_train(ckpt, ia_output):
-    print('keep training...')
-    train_x, train_y, test_x, test_y = get_ia(ia_output)
-    with tf.Session() as sess:
-        saver = tf.train.import_meta_graph('../models/{}.ckpt.meta'.format(ckpt))
-        saver.restore(sess, '../models/{}.ckpt'.format(ckpt))
-        accuracy = tf.get_collection('accuracy')[0]
-        x_in = tf.get_collection('x_in')[0]
-        y_in = tf.get_collection('y_in')[0]
-        cost = tf.get_collection('cost')[0]
-        optimizer = tf.get_collection('optimizer')[0]
-        # epoch
-        batch_size = 64
-        for i in range(ckpt+1, 1001):
-            for j in range(int(train_x.shape[0] / 64)):
-                x_batch = train_x[j * batch_size: (j + 1) * batch_size]
-                y_batch = train_y[j * batch_size: (j + 1) * batch_size]
-                sess.run(optimizer, feed_dict={x_in: x_batch, y_in: y_batch})
-            # print accuracy after each epoch
-            train_accuracy = accuracy.eval(session=sess,
-                                           feed_dict={
-                                               x_in: x_batch, y_in: y_batch
-                                           })
-            print('epoch {}, training accuracy {}'.format(i, train_accuracy))
-            print('test accuracy {}'.format(accuracy.eval(session=sess, feed_dict={x_in: test_x, y_in: test_y})))
-            saver = tf.train.Saver()
-            saved_path = saver.save(sess, '../models/{}.ckpt'.format(i))
-            print('model saved to {}'.format(saved_path))
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='train cnn for sic problem')
-    parser.add_argument('-m', '--mode', type=str, choices=['train', 'ia', 'combine_ia'], default='train')
+    parser.add_argument('-m', '--mode', type=str, choices=['train', 'ia'], default='train')
     parser.add_argument('--ia_start', type=int)
     parser.add_argument('--ia_end', type=int)
     parser.add_argument('--ia_output', type=str, default='')
-    parser.add_argument('-l', '--ia_output_list', nargs='+', type=str, default='')
     parser.add_argument('--epoch_size', type=int)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--fold_size', type=int, default=1000)
     parser.add_argument('--learning_rate', type=float, default=1e-4)
     parser.add_argument('--ckpt', type=str)
     parser.add_argument('--logdir', type=str, default='../logs/default')
+    parser.add_argument('--ia_simple', type=bool, default=False)
     args = parser.parse_args()
     if args.mode == 'train':
         train(args.ia_output, args.batch_size, args.epoch_size, args.fold_size, args.learning_rate, args.ckpt, args.logdir)
     elif args.mode == 'ia':
-        ia(args.ia_start, args.ia_end, args.ia_output)
-    elif args.mode == 'combine_ia':
-        print(args.ia_output_list)
-        combine_ia(args.ia_output_list)
+        if args.ia_simple:
+            ia_simple(args.ia_start, args.ia_end, args.ia_output)
+        else:
+            ia(args.ia_start, args.ia_end, args.ia_output)
