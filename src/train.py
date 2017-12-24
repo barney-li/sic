@@ -29,6 +29,12 @@ def model():
         y_ = y_generator(x, True)
     with tf.name_scope('cost'):
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_, labels=y))
+    with tf.name_scope('trn_cost'):
+        trn_cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=trn_acc_logits_in, labels=trn_acc_labels_in))
+        tf.summary.scalar('trn_cost', trn_cost)
+    with tf.name_scope('tst_cost'):
+        tst_cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=tst_acc_logits_in, labels=tst_acc_labels_in))
+        tf.summary.scalar('tst_cost', tst_cost)
     with tf.name_scope('accuracy'):
         correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
         correct_prediction = tf.cast(correct_prediction, tf.float32)
@@ -46,7 +52,7 @@ def model():
            'learning_rate_in': learning_rate_in, 'trn_acc_labels_in': trn_acc_labels_in,
            'trn_acc_logits_in': trn_acc_logits_in, 'trn_acc': trn_acc,
            'tst_acc_labels_in': tst_acc_labels_in, 'tst_acc_logits_in': tst_acc_logits_in,
-           'tst_acc': tst_acc, 'summ': summ}
+           'tst_acc': tst_acc, 'trn_cost': trn_cost, 'tst_cost': tst_cost, 'summ': summ}
     return ret
 
 
@@ -121,6 +127,8 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
         tst_acc_labels_in = md['tst_acc_labels_in']
         tst_acc_logits_in = md['tst_acc_logits_in']
         tst_acc = md['tst_acc']
+        trn_cost = md['trn_cost']
+        tst_cost = md['tst_cost']
         summ = md['summ']
     else:
         print('training from ckpt {}'.format(ckpt))
@@ -143,6 +151,8 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
             tf.add_to_collection('tst_acc', tst_acc)
             tf.add_to_collection('tst_acc_labels_in', tst_acc_labels_in)
             tf.add_to_collection('tst_acc_logits_in', tst_acc_logits_in)
+            tf.add_to_collection('trn_cost', trn_cost)
+            tf.add_to_collection('tst_cost', tst_cost)
 
         else:
             print('loading ckpt {}'.format(ckpt))
@@ -162,6 +172,8 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
             tst_acc = tf.get_collection('tst_acc')[0]
             tst_acc_labels_in = tf.get_collection('tst_acc_labels_in')[0]
             tst_acc_logits_in = tf.get_collection('tst_acc_logits_in')[0]
+            trn_cost = tf.get_collection('trn_cost')[0]
+            tst_cost = tf.get_collection('tst_cost')[0]
 
         writer = tf.summary.FileWriter(logdir)
         writer.add_graph(sess.graph)
@@ -189,11 +201,14 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
                     np.concatenate((trn_acc_labels, y_batch))
                     np.concatenate((trn_acc_logits, res))
             tst_acc_logits = y_.eval(session=sess, feed_dict={x_in:test_x})
-            [trn_acc_out, tst_acc_out, summ_out] = sess.run([trn_acc, tst_acc, summ], feed_dict={trn_acc_labels_in:trn_acc_labels,
+            [trn_acc_out, tst_acc_out, trn_cost_out, tst_cost_out, summ_out] = sess.run([trn_acc, tst_acc, trn_cost, tst_cost, summ],
+                                                            feed_dict={trn_acc_labels_in:trn_acc_labels,
                                                                        trn_acc_logits_in:trn_acc_logits,
                                                                        tst_acc_labels_in:test_y,
                                                                        tst_acc_logits_in:tst_acc_logits})
-            print('epoch {} train accuracy {} test accuracy {}'.format(epoch, batch, trn_acc_out, tst_acc_out))
+            print('epoch {}'.format(epoch))
+            print('train accuracy {} train cost {}'.format(trn_acc_out, trn_cost_out))
+            print('test accuracy {} test cost {}'.format(tst_acc_out, tst_cost_out))
             writer.add_summary(summ_out, epoch)
             saver = tf.train.Saver()
             print('saving ckpt...')
