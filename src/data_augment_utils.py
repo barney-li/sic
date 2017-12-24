@@ -12,11 +12,14 @@ def format_label(labels_in):
 def format_img(images_in):
     images_out = []
     cnt = 0
-    # put the graph creating part out of the loop, this is very important cuz
-    # otherwize the graph get created over and over and the session runs slower
-    # and slower
-    im_in = tf.placeholder(tf.int8, shape=[3, 75, 75])
-    im_out = tf.transpose(im_in, [1, 2, 0])
+    # put the graph in cpu, other wise it's just too slow to transmit data to gpu
+    # back and forth through pci
+    with tf.device('/cpu:0'):
+        # put the graph creating part out of the loop, this is very important cuz
+        # otherwize the graph get created over and over and the session runs slower
+        # and slower
+        im_in = tf.placeholder(tf.int8, shape=[3, 75, 75])
+        im_out = tf.transpose(im_in, [1, 2, 0])
     for arr in images_in:
         print('formatting img {}...'.format(cnt))
         cnt += 1
@@ -37,10 +40,13 @@ def ia(images_in, labels_in):
     images_out = []
     labels_out = []
     cnt = 0
-    image_in = tf.placeholder(tf.int8, images_in[0].shape)
-    up_down = tf.image.flip_up_down(image_in)
-    left_right = tf.image.flip_left_right(image_in)
-    rot90 = tf.image.rot90(image_in)
+    # put the graph in cpu, other wise it's just too slow to transmit data to gpu
+    # back and forth through pci
+    with tf.device('/cpu:0'):
+        image_in = tf.placeholder(tf.int8, images_in[0].shape)
+        up_down = tf.image.flip_up_down(image_in)
+        left_right = tf.image.flip_left_right(image_in)
+        rot90 = tf.image.rot90(image_in)
     for image, label in zip(images_in, labels_in):
         print('ia img {}...'.format(cnt))
         cnt += 1
