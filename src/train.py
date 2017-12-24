@@ -59,6 +59,22 @@ def get_ia():
     return x[200:], y[200:], x[0:200], y[0:200]
 
 
+def combine_ia(output_list):
+    x = None
+    y = None
+    for i in output_list:
+        x1 = np.load('../data/train_x_{}.npy'.format(i))
+        y1 = np.load('../data/train_y_{}.npy'.format(i))
+        if x is not None:
+            x = np.concatenate((x, x1))
+            y = np.concatenate((y, y1))
+        else:
+            x = x1
+            y = y1
+    np.save('../data/train_x.npy', x)
+    np.save('../data/train_y.npy', y)
+
+
 def train():
     print('training')
     train_x, train_y, test_x, test_y = get_ia()
@@ -119,12 +135,16 @@ def keep_train(ckpt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='train cnn for sic problem')
-    parser.add_argument('-m', '--mode', type=str, choices=['train', 'ia'], default='train')
+    parser.add_argument('-m', '--mode', type=str, choices=['train', 'ia', 'combine_ia'], default='train')
     parser.add_argument('--ia_start', type=int)
     parser.add_argument('--ia_end', type=int)
     parser.add_argument('--ia_output', type=str, default='')
+    parser.add_argument('-l', '--ia_output_list', nargs='+', type=str, default='')
     args = parser.parse_args()
     if args.mode == 'train':
         train()
     elif args.mode == 'ia':
         ia(args.ia_start, args.ia_end, args.ia_output)
+    elif args.mode == 'combine_ia':
+        print(args.ia_output_list)
+        combine_ia(args.ia_output_list)
