@@ -4,9 +4,7 @@ import tensorflow as tf
 import resnet_model
 import data_augment_utils as utils
 import argparse
-import os
-import math
-
+import random
 
 def get_sic_training_data(path='../data/train.json'):
     train_data = pd.read_json(path)
@@ -20,7 +18,7 @@ def model():
         x_in = tf.placeholder(tf.float32)
         y_in = tf.placeholder(tf.float32)
         learning_rate_in = tf.placeholder(tf.float32)
-        x = tf.image.resize_image_with_crop_or_pad(tf.reshape(x_in, [-1, 75, 75, 3]), 256, 256)
+        x = tf.image.resize_images(tf.reshape(x_in, [-1, 75, 75, 2]), [256, 256], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
         y = tf.reshape(y_in, [-1, 2])
     with tf.name_scope('resnet'):
         y_generator = resnet_model.imagenet_resnet_v2(18, 2, 'channels_last')
@@ -43,7 +41,7 @@ def ia(start_index, end_index, output):
     c2 = c2[start_index:end_index]
     y = y[start_index:end_index]
     print('concatenate channels...')
-    c12 = np.concatenate((c1, c1, c2), axis=1)
+    c12 = np.concatenate((c1, c2), axis=1)
     print('formatting images...')
     fmt_img = utils.format_img(c12)
     print('formatting labels...')
@@ -75,6 +73,19 @@ def combine_ia(output_list):
             y = y1
     np.save('../data/train_x.npy', x)
     np.save('../data/train_y.npy', y)
+
+
+# A function to generate a random permutation of arr[]
+def randomize(arr, n):
+    # Start from the last element and swap one by one. We don't
+    # need to run for the first element that's why i > 0
+    for i in range(n - 1, 0, -1):
+        # Pick a random index from 0 to i
+        j = random.randint(0, i)
+
+        # Swap arr[i] with the element at random index
+        arr[i], arr[j] = arr[j], arr[i]
+    return arr
 
 
 def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt):

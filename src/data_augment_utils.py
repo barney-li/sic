@@ -18,7 +18,7 @@ def format_img(images_in):
         # put the graph creating part out of the loop, this is very important cuz
         # otherwize the graph get created over and over and the session runs slower
         # and slower
-        im_in = tf.placeholder(tf.int8, shape=[3, 75, 75])
+        im_in = tf.placeholder(tf.int8, shape=[2, 75, 75])
         im_out = tf.transpose(im_in, [1, 2, 0])
     for arr in images_in:
         print('formatting img {}...'.format(cnt))
@@ -26,7 +26,7 @@ def format_img(images_in):
         max_v = arr.max()
         min_v = arr.min()
         arr = 255 * (arr - min_v) / (max_v - min_v)
-        image = np.reshape(arr, (3, 75, 75))
+        image = np.reshape(arr, (2, 75, 75))
         with tf.Session() as sess:
             t0 = time.perf_counter()
             res = sess.run(im_out, feed_dict={im_in: image})
