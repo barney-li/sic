@@ -35,7 +35,6 @@ def format_img(images_in):
             images_out.append(res)
     return np.array(images_out)
 
-
 def ia(images_in, labels_in):
     images_out = []
     labels_out = []
@@ -60,3 +59,12 @@ def ia(images_in, labels_in):
             images_out.append(sess.run(rot90, feed_dict={image_in: image}))
             labels_out.append(label)
     return np.array(images_out), np.array(labels_out)
+
+def get_test_data(path='../data/test.json'):
+    test_data = pd.read_json(path)
+    band1 = np.array(test_data['band_1'].tolist())
+    band2 = np.array(test_data['band_2'].tolist())
+    id = np.array(test_data['id'].tolist())
+    band = np.stack([band1, band2], -1)
+    images = np.reshape(np.stack([band1, band2], -1), (-1, 75, 75, 2))
+    return images, id
