@@ -4,10 +4,7 @@ import numpy as np
 import time
 
 def format_label(labels_in):
-    labels_out = tf.one_hot(labels_in, depth=2)
-    with tf.Session() as sess:
-        res = np.array(sess.run(labels_out))
-    return res
+    return labels_in
 
 def format_img(images_in):
     images_out = []
