@@ -327,8 +327,8 @@ def imagenet_resnet_v2_generator(block_fn, layers, num_classes, data_format=None
                     inputs=inputs, pool_size=7, strides=1, padding='VALID',
                     data_format=data_format)
             inputs = tf.identity(inputs, 'final_avg_pool')
-            inputs = tf.reshape(inputs, [-1, inputs.shape[1] * inputs.shape[2] * inputs.shape[3]])
-            #inputs = tf.reshape(inputs, [-1, 512 if block_fn is building_block else 2048])
+            #inputs = tf.reshape(inputs, [-1, inputs.shape[1] * inputs.shape[2] * inputs.shape[3]])
+            inputs = tf.reshape(inputs, [-1, 512 if block_fn is building_block else 2048])
             inputs = tf.layers.dense(inputs=inputs, units=num_classes)
             inputs = tf.identity(inputs, 'final_dense')
         return inputs
