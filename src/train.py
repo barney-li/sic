@@ -22,7 +22,7 @@ def model():
         x_in = tf.placeholder(tf.float32, name='x_in')
         y_in = tf.placeholder(tf.float32, name='y_in')
         learning_rate_in = tf.placeholder(tf.float32, name='learning_rate_in')
-        x = tf.image.resize_images(tf.reshape(x_in, [-1, 75, 75, 2]), [256, 256], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+        x = tf.image.resize_images(tf.reshape(x_in, [-1, 75, 75, 2]), [224, 224], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
         y = tf.reshape(y_in, [-1, 2])
     with tf.name_scope('resnet'):
         y_generator = resnet_model.imagenet_resnet_v2(18, 2, 'channels_last')
