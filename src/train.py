@@ -67,9 +67,8 @@ def ia_simple(start_index, end_index, output):
     c1 = c1[start_index:end_index]
     c2 = c2[start_index:end_index]
     y = y[start_index:end_index]
-    print('concatenate channels...')
-    c12 = np.concatenate((c1, c2), axis=1)
-    print('one-hot labels...')
+    print('stack channels...')
+    c12 = np.stack((c1, c2), axis=-1)
     np.save('../data/train_x_{}.npy'.format(output), c12)
     np.save('../data/train_y_{}.npy'.format(output), y)
     return c12, y
@@ -81,14 +80,12 @@ def ia(start_index, end_index, output):
     c1 = c1[start_index:end_index]
     c2 = c2[start_index:end_index]
     y = y[start_index:end_index]
-    print('concatenate channels...')
-    c12 = np.concatenate((c1, c2), axis=1)
+    print('stack channels...')
+    c12 = np.stack((c1, c2), axis=-1)
     print('formatting images...')
-    fmt_img = utils.format_img(c12)
-    print('formatting labels...')
-    fmt_lb = utils.format_label(y)
+    fmt_img = np.reshape(c12, (-1,75,75,2))
     print('image augmentation...')
-    train_x, train_y = utils.ia(fmt_img, fmt_lb)
+    train_x, train_y = utils.ia(fmt_img, y)
     np.save('../data/train_x_{}.npy'.format(output), train_x)
     np.save('../data/train_y_{}.npy'.format(output), train_y)
     return train_x, train_y
