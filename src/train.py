@@ -15,6 +15,7 @@ def get_sic_training_data(path='../data/train.json'):
 
 def model():
     with tf.name_scope('reshape'):
+        is_training = tf.placeholder(tf.bool, name='is_training')
         trn_acc_labels_in = tf.placeholder(tf.float32, name='trn_acc_labels_in')
         trn_acc_logits_in = tf.placeholder(tf.float32, name='trn_acc_logits_in')
         tst_acc_labels_in = tf.placeholder(tf.float32, name='tst_acc_labels_in')
@@ -26,7 +27,7 @@ def model():
         y = tf.reshape(y_in, [-1, 2])
     with tf.name_scope('resnet'):
         y_generator = resnet_model.imagenet_resnet_v2(18, 2, 'channels_last')
-        y_ = y_generator(x, True)
+        y_ = y_generator(x, is_training)
     with tf.name_scope('cost'):
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_, labels=y))
     with tf.name_scope('trn_cost'):
@@ -52,7 +53,7 @@ def model():
            'learning_rate_in': learning_rate_in, 'trn_acc_labels_in': trn_acc_labels_in,
            'trn_acc_logits_in': trn_acc_logits_in, 'trn_acc': trn_acc,
            'tst_acc_labels_in': tst_acc_labels_in, 'tst_acc_logits_in': tst_acc_logits_in,
-           'tst_acc': tst_acc, 'trn_cost': trn_cost, 'tst_cost': tst_cost, 'summ': summ}
+           'tst_acc': tst_acc, 'trn_cost': trn_cost, 'tst_cost': tst_cost, 'summ': summ, 'is_training': is_training}
     return ret
 
 
@@ -116,6 +117,7 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
         trn_cost = md['trn_cost']
         tst_cost = md['tst_cost']
         summ = md['summ']
+        is_training = md['is_training']
     else:
         print('training from ckpt {}'.format(ckpt))
 
@@ -139,6 +141,7 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
             tf.add_to_collection('tst_acc_logits_in', tst_acc_logits_in)
             tf.add_to_collection('trn_cost', trn_cost)
             tf.add_to_collection('tst_cost', tst_cost)
+            tf.add_to_collection('is_training', is_training)
 
         else:
             print('loading ckpt {}'.format(ckpt))
@@ -160,6 +163,7 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
             tst_acc_logits_in = tf.get_collection('tst_acc_logits_in')[0]
             trn_cost = tf.get_collection('trn_cost')[0]
             tst_cost = tf.get_collection('tst_cost')[0]
+            is_training = tf.get_collection('is_training')[0]
 
         writer = tf.summary.FileWriter(logdir)
         writer.add_graph(sess.graph)
@@ -171,26 +175,27 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
             for batch in range(epoch_size):
                 x_batch = train_x[batch * batch_size: (batch + 1) * batch_size]
                 y_batch = train_y[batch * batch_size: (batch + 1) * batch_size]
-                sess.run(optimizer, feed_dict={x_in: x_batch, y_in: y_batch, learning_rate_in: learning_rate})
+                sess.run(optimizer, feed_dict={x_in: x_batch, y_in: y_batch, learning_rate_in: learning_rate, is_training: True})
             # print accuracy after each epoch
             trn_acc_labels = None
             trn_acc_logits = None
             for batch in range(epoch_size):
                 x_batch = train_x[batch * batch_size: (batch + 1) * batch_size]
                 y_batch = train_y[batch * batch_size: (batch + 1) * batch_size]
-                res = y_.eval(session=sess, feed_dict={x_in:x_batch})
+                res = y_.eval(session=sess, feed_dict={x_in:x_batch, is_training: False})
                 if trn_acc_labels is None:
                     trn_acc_labels = y_batch
                     trn_acc_logits = res
                 else:
                     np.concatenate((trn_acc_labels, y_batch))
                     np.concatenate((trn_acc_logits, res))
-            tst_acc_logits = y_.eval(session=sess, feed_dict={x_in:test_x})
+            tst_acc_logits = y_.eval(session=sess, feed_dict={x_in:test_x, is_training: False})
             [trn_acc_out, tst_acc_out, trn_cost_out, tst_cost_out, summ_out] = sess.run([trn_acc, tst_acc, trn_cost, tst_cost, summ],
                                                             feed_dict={trn_acc_labels_in:trn_acc_labels,
                                                                        trn_acc_logits_in:trn_acc_logits,
                                                                        tst_acc_labels_in:test_y,
-                                                                       tst_acc_logits_in:tst_acc_logits})
+                                                                       tst_acc_logits_in:tst_acc_logits,
+                                                                       is_training:False})
             print('\nepoch {}'.format(epoch))
             print('train accuracy {} train cost {}'.format(trn_acc_out, trn_cost_out))
             print('test accuracy {} test cost {}'.format(tst_acc_out, tst_cost_out))
