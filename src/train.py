@@ -25,7 +25,7 @@ def model():
         x = tf.image.resize_images(tf.reshape(x_in, [-1, 75, 75, 2]), [224, 224], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
         y = tf.reshape(y_in, [-1, 2])
     with tf.name_scope('resnet'):
-        y_generator = resnet_model.imagenet_resnet_v2(18, 2, 'channels_last')
+        y_generator = resnet_model.imagenet_resnet_v2(18, 2)
         y_ = y_generator(x, True)
     with tf.name_scope('cost'):
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_, labels=y))

@@ -82,7 +82,7 @@ def get_train_data(path='../data/train.json', archive_id='', regen_data = False,
         c1 = np.array(train_data['band_1'].tolist())
         c2 = np.array(train_data['band_2'].tolist())
         train_y = np.array(train_data['is_iceberg'].tolist())
-        train_x = np.concatenate((c1, c2), axis=1)
+        train_x = np.stack((c1, c2), axis=-1)
         if not no_ia:
             raw_x = train_x.copy()
             print('formatting images...')
