@@ -43,7 +43,7 @@ def ia(images_in, labels_in):
     # put the graph in cpu, other wise it's just too slow to transmit data to gpu
     # back and forth through pci
     with tf.device('/cpu:0'):
-        image_in = tf.placeholder(tf.int8, images_in[0].shape)
+        image_in = tf.placeholder(tf.float32, images_in[0].shape)
         up_down = tf.image.flip_up_down(image_in)
         left_right = tf.image.flip_left_right(image_in)
         rot90 = tf.image.rot90(image_in)
@@ -81,17 +81,21 @@ def get_train_data(path='../data/train.json', archive_id='', regen_data = False,
         train_data = pd.read_json(path)
         c1 = np.array(train_data['band_1'].tolist())
         c2 = np.array(train_data['band_2'].tolist())
-        is_iceberg = np.array(train_data['is_iceberg'].tolist())
+        train_y = np.array(train_data['is_iceberg'].tolist())
         train_x = np.concatenate((c1, c2), axis=1)
         if not no_ia:
+            raw_x = train_x.copy()
             print('formatting images...')
             # FIXME - let's try not formatting the image first
-            # train_x = format_img(train_x)
-            train_x = np.reshape(train_x, (-1, 75, 75, 2))
-            print('formatting labels...')
-            train_y = format_label(is_iceberg)
+            # format_x = format_img(raw_x)
+            format_x = np.reshape(raw_x, (-1, 75, 75, 2))
             print('image augmentation...')
-            train_x, train_y = ia(train_x, train_y)
+            train_x, train_y = ia(format_x, train_y)
+        print('formatting labels...')
+        train_y = format_label(train_y)
         np.save('../data/train_x_{}.npy'.format(archive_id), train_x)
         np.save('../data/train_y_{}.npy'.format(archive_id), train_y)
     return train_x, train_y
+
+if __name__ == '__main__':
+    get_train_data(regen_data=True)
