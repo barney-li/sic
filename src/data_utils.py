@@ -2,7 +2,8 @@ import tensorflow as tf
 import pandas as pd
 import numpy as np
 import time
-
+import os
+import argparse
 def format_label(labels_in):
     labels_out = tf.one_hot(labels_in, depth=2)
     with tf.Session() as sess:
@@ -68,3 +69,29 @@ def get_test_data(path='../data/test.json'):
     band = np.stack([band1, band2], -1)
     images = np.reshape(np.stack([band1, band2], -1), (-1, 75, 75, 2))
     return images, id
+
+
+def get_train_data(path='../data/train.json', archive_id='', regen_data = False, no_ia = False):
+    archive_x = '../data/train_x_{}.npy'.format(archive_id)
+    archive_y = '../data/train_y_{}.npy'.format(archive_id)
+    if (not regen_data) and os.path.isfile(archive_x) and os.path.isfile(archive_y):
+        train_x = np.load(archive_x)
+        train_y = np.load(archive_y)
+    else:
+        train_data = pd.read_json(path)
+        c1 = np.array(train_data['band_1'].tolist())
+        c2 = np.array(train_data['band_2'].tolist())
+        is_iceberg = np.array(train_data['is_iceberg'].tolist())
+        train_x = np.concatenate((c1, c2), axis=1)
+        if not no_ia:
+            print('formatting images...')
+            # FIXME - let's try not formatting the image first
+            # train_x = format_img(train_x)
+            train_x = np.reshape(train_x, (-1, 75, 75, 2))
+            print('formatting labels...')
+            train_y = format_label(is_iceberg)
+            print('image augmentation...')
+            train_x, train_y = ia(train_x, train_y)
+        np.save('../data/train_x_{}.npy'.format(archive_id), train_x)
+        np.save('../data/train_y_{}.npy'.format(archive_id), train_y)
+    return train_x, train_y

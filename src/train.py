@@ -2,15 +2,15 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import resnet_model
-import data_augment_utils as utils
+import data_utils as utils
 import argparse
 import random
 
-def get_sic_training_data(path='../data/train.json'):
-    train_data = pd.read_json(path)
-    return np.array(train_data['band_1'].tolist()), \
-           np.array(train_data['band_2'].tolist()), \
-           np.array(train_data['is_iceberg'].tolist())
+# def get_sic_training_data(path='../data/train.json'):
+#     train_data = pd.read_json(path)
+#     return np.array(train_data['band_1'].tolist()), \
+#            np.array(train_data['band_2'].tolist()), \
+#            np.array(train_data['is_iceberg'].tolist())
 
 
 def model():
@@ -56,47 +56,47 @@ def model():
     return ret
 
 
-def ia_simple(start_index, end_index, output):
-    print('getting training data...')
-    c1, c2, y = get_sic_training_data()
-    c1 = c1[start_index:end_index]
-    c2 = c2[start_index:end_index]
-    y = y[start_index:end_index]
-    print('concatenate channels...')
-    c12 = np.concatenate((c1, c2), axis=1)
-    print('one-hot labels...')
-    y_onehot = utils.format_label(y)
-    np.save('../data/train_x_{}.npy'.format(output), c12)
-    np.save('../data/train_y_{}.npy'.format(output), y_onehot)
-    return c12, y_onehot
+# def ia_simple(start_index, end_index, output):
+#     print('getting training data...')
+#     c1, c2, y = get_sic_training_data()
+#     c1 = c1[start_index:end_index]
+#     c2 = c2[start_index:end_index]
+#     y = y[start_index:end_index]
+#     print('concatenate channels...')
+#     c12 = np.concatenate((c1, c2), axis=1)
+#     print('one-hot labels...')
+#     y_onehot = utils.format_label(y)
+#     np.save('../data/train_x_{}.npy'.format(output), c12)
+#     np.save('../data/train_y_{}.npy'.format(output), y_onehot)
+#     return c12, y_onehot
 
 
-def ia(start_index, end_index, output):
-    print('getting training data...')
-    c1, c2, y = get_sic_training_data()
-    c1 = c1[start_index:end_index]
-    c2 = c2[start_index:end_index]
-    y = y[start_index:end_index]
-    print('concatenate channels...')
-    c12 = np.concatenate((c1, c2), axis=1)
-    print('formatting images...')
-    fmt_img = utils.format_img(c12)
-    print('formatting labels...')
-    fmt_lb = utils.format_label(y)
-    print('image augmentation...')
-    train_x, train_y = utils.ia(fmt_img, fmt_lb)
-    np.save('../data/train_x_{}.npy'.format(output), train_x)
-    np.save('../data/train_y_{}.npy'.format(output), train_y)
-    return train_x, train_y
+# def ia(start_index, end_index, output):
+#     print('getting training data...')
+#     c1, c2, y = get_sic_training_data()
+#     c1 = c1[start_index:end_index]
+#     c2 = c2[start_index:end_index]
+#     y = y[start_index:end_index]
+#     print('concatenate channels...')
+#     c12 = np.concatenate((c1, c2), axis=1)
+#     print('formatting images...')
+#     fmt_img = utils.format_img(c12)
+#     print('formatting labels...')
+#     fmt_lb = utils.format_label(y)
+#     print('image augmentation...')
+#     train_x, train_y = utils.ia(fmt_img, fmt_lb)
+#     np.save('../data/train_x_{}.npy'.format(output), train_x)
+#     np.save('../data/train_y_{}.npy'.format(output), train_y)
+#     return train_x, train_y
 
 
-def get_ia(ia_output):
-    x = np.load('../data/train_x_{}.npy'.format(ia_output))
-    y = np.load('../data/train_y_{}.npy'.format(ia_output))
-    return x[200:], y[200:], x[0:200], y[0:200]
+# def get_ia(ia_output):
+#     x = np.load('../data/train_x_{}.npy'.format(ia_output))
+#     y = np.load('../data/train_y_{}.npy'.format(ia_output))
+#     return x[200:], y[200:], x[0:200], y[0:200]
 
 
-def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir):
+def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia, regen_data):
     if ckpt is None:
         print('training')
         md = model()
@@ -119,7 +119,11 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
     else:
         print('training from ckpt {}'.format(ckpt))
 
-    train_x, train_y, test_x, test_y = get_ia(ia_output)
+    total_x, total_y = utils.get_train_data(regen_data=regen_data, no_ia=no_ia)
+    train_x = total_x[200:]
+    train_y = total_y[200:]
+    test_x = total_x[0:200]
+    test_y = total_y[0:200]
 
     with tf.Session() as sess:
         if ckpt is None:
@@ -203,22 +207,13 @@ def train(ia_output, batch_size, epoch_size, fold_size, learning_rate, ckpt, log
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='train cnn for sic problem')
-    parser.add_argument('-m', '--mode', type=str, choices=['train', 'ia'], default='train')
-    parser.add_argument('--ia_start', type=int)
-    parser.add_argument('--ia_end', type=int)
-    parser.add_argument('--ia_output', type=str, default='')
     parser.add_argument('--epoch_size', type=int)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--fold_size', type=int, default=1000)
     parser.add_argument('--learning_rate', type=float, default=1e-4)
     parser.add_argument('--ckpt', type=str)
     parser.add_argument('--logdir', type=str, default='../logs/default')
-    parser.add_argument('--ia_simple', type=bool, default=False)
+    parser.add_argument('--no_ia', type=bool, default=False)
+    parser.add_argument('--regen_data', type=bool, default=False)
     args = parser.parse_args()
-    if args.mode == 'train':
-        train(args.ia_output, args.batch_size, args.epoch_size, args.fold_size, args.learning_rate, args.ckpt, args.logdir)
-    elif args.mode == 'ia':
-        if args.ia_simple:
-            ia_simple(args.ia_start, args.ia_end, args.ia_output)
-        else:
-            ia(args.ia_start, args.ia_end, args.ia_output)
+    train(args.batch_size, args.epoch_size, args.fold_size, args.learning_rate, args.ckpt, args.logdir, args.no_ia, args.regen_data)
