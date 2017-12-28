@@ -19,7 +19,7 @@ def format_img(images_in):
         # put the graph creating part out of the loop, this is very important cuz
         # otherwize the graph get created over and over and the session runs slower
         # and slower
-        im_in = tf.placeholder(tf.int8, shape=[2, 75, 75])
+        im_in = tf.placeholder(tf.float32, shape=[2, 75, 75])
         im_out = tf.transpose(im_in, [1, 2, 0])
     for arr in images_in:
         print('formatting img {}...'.format(cnt))
