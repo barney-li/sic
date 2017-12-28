@@ -1,0 +1,52 @@
+checkout batch_norm implementation here https://github.com/udacity/cn-deep-learning/blob/master/tutorials/batch-norm/Batch_Normalization_Solutions.ipynb, it has a really good point.
+
+def conv_layer(prev_layer, layer_depth, is_training):
+    """
+    Create a convolutional layer with the given layer as input.
+    
+    :param prev_layer: Tensor
+        The Tensor that acts as input into this layer
+    :param layer_depth: int
+        We'll set the strides and number of feature maps based on the layer's depth in the network.
+        This is *not* a good way to make a CNN, but it helps us create this example with very little code.
+    :param is_training: bool or Tensor
+        Indicates whether or not the network is currently training, which tells the batch normalization
+        layer whether or not it should update or use its population statistics.
+    :returns Tensor
+        A new convolutional layer
+    """
+    strides = 2 if layer_depth % 3 == 0 else 1
+    
+    in_channels = prev_layer.get_shape().as_list()[3]
+    out_channels = layer_depth*4
+    
+    weights = tf.Variable(
+        tf.truncated_normal([3, 3, in_channels, out_channels], stddev=0.05))
+    
+    layer = tf.nn.conv2d(prev_layer, weights, strides=[1,strides, strides, 1], padding='SAME')
+
+    gamma = tf.Variable(tf.ones([out_channels]))
+    beta = tf.Variable(tf.zeros([out_channels]))
+
+    pop_mean = tf.Variable(tf.zeros([out_channels]), trainable=False)
+    pop_variance = tf.Variable(tf.ones([out_channels]), trainable=False)
+
+    epsilon = 1e-3
+    
+    def batch_norm_training():
+        # Important to use the correct dimensions here to ensure the mean and variance are calculated 
+        # per feature map instead of for the entire layer
+        batch_mean, batch_variance = tf.nn.moments(layer, [0,1,2], keep_dims=False)
+
+        decay = 0.99
+        train_mean = tf.assign(pop_mean, pop_mean * decay + batch_mean * (1 - decay))
+        train_variance = tf.assign(pop_variance, pop_variance * decay + batch_variance * (1 - decay))
+
+        with tf.control_dependencies([train_mean, train_variance]):
+            return tf.nn.batch_normalization(layer, batch_mean, batch_variance, beta, gamma, epsilon)
+ 
+    def batch_norm_inference():
+        return tf.nn.batch_normalization(layer, pop_mean, pop_variance, beta, gamma, epsilon)
+
+    batch_normalized_output = tf.cond(is_training, batch_norm_training, batch_norm_inference)
+    return tf.nn.relu(batch_normalized_output)
