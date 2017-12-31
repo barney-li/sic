@@ -79,6 +79,9 @@ def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia,
                 tst_cost = tf.get_collection('tst_cost')[0]
                 is_training = tf.get_collection('is_training')[0]
 
+            graph = sess.graph
+            is_training_tensor = graph.get_tensor_by_name('input/is_training:0')
+
             writer = tf.summary.FileWriter(logdir)
             writer.add_graph(sess.graph)
             # epoch
@@ -89,7 +92,8 @@ def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia,
                 for batch in range(epoch_size):
                     x_batch = train_x[batch * batch_size: (batch + 1) * batch_size]
                     y_batch = train_y[batch * batch_size: (batch + 1) * batch_size]
-                    sess.run(optimizer, feed_dict={x_in: x_batch, y_in: y_batch, learning_rate_in: learning_rate, is_training: True})
+                    sess.run(optimizer, feed_dict={x_in: x_batch, y_in: y_batch, learning_rate_in: learning_rate, is_training: False})
+
                 # print accuracy after each epoch
                 trn_acc_labels = None
                 trn_acc_logits = None

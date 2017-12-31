@@ -1,7 +1,7 @@
 import tensorflow as tf
 import resnet_model
 def model():
-    with tf.name_scope('input'):
+    with tf.variable_scope('input'):
         is_training = tf.placeholder(tf.bool, name='is_training')
         trn_acc_labels_in = tf.placeholder(tf.float32, name='trn_acc_labels_in')
         trn_acc_logits_in = tf.placeholder(tf.float32, name='trn_acc_logits_in')
@@ -14,8 +14,8 @@ def model():
         x = tf.image.resize_images(tf.reshape(x_in, [-1, 75, 75, 2]), [224, 224], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
         y = tf.reshape(y_in, [-1, 2])
     with tf.name_scope('resnet'):
-        y_generator = resnet_model.imagenet_resnet_v2(18, 2)
-        y_ = y_generator(x, True)
+        y_generator = resnet_model.imagenet_resnet_v2(18, 2, 'channels_last')
+        y_ = y_generator(x, is_training)
     with tf.name_scope('cost'):
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_, labels=y))
     with tf.name_scope('trn_cost'):

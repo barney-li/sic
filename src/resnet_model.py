@@ -35,14 +35,40 @@ _BATCH_NORM_DECAY = 0.997
 _BATCH_NORM_EPSILON = 1e-5
 
 
+def batch_norm(inputs, is_training):
+    channels = inputs.shape[3]
+    gamma = tf.Variable(tf.ones([channels]))
+    beta = tf.Variable(tf.zeros([channels]))
+    pop_mean = tf.Variable(tf.zeros([channels]), trainable=False)
+    pop_variance = tf.Variable(tf.ones([channels]), trainable=False)
+
+    epsilon = 1e-3
+
+    def batch_norm_training():
+        # Important to use the correct dimensions here to ensure the mean and variance are calculated
+        # per feature map instead of for the entire layer
+        batch_mean, batch_variance = tf.nn.moments(inputs, [0, 1, 2], keep_dims=False)
+
+        decay = 0.99
+        train_mean = tf.assign(pop_mean, pop_mean * decay + batch_mean * (1 - decay))
+        train_variance = tf.assign(pop_variance, pop_variance * decay + batch_variance * (1 - decay))
+
+        with tf.control_dependencies([train_mean, train_variance]):
+            return tf.nn.batch_normalization(inputs, batch_mean, batch_variance, beta, gamma, epsilon)
+
+    def batch_norm_inference():
+        return tf.nn.batch_normalization(inputs, pop_mean, pop_variance, beta, gamma, epsilon)
+    # is_training = tf.cast(is_training, tf.bool)
+    # is_training = tf.Print(is_training, [is_training, pop_mean, pop_variance])
+    batch_normalized_output = tf.cond(is_training, batch_norm_training, batch_norm_inference)
+    return tf.nn.relu(batch_normalized_output)
+
+
 def batch_norm_relu(inputs, is_training, data_format):
     """Performs a batch normalization followed by a ReLU."""
     # We set fused=True for a significant performance boost. See
     # https://www.tensorflow.org/performance/performance_guide#common_fused_ops
-    inputs = tf.layers.batch_normalization(
-            inputs=inputs, axis=1 if data_format == 'channels_first' else 3,
-            momentum=_BATCH_NORM_DECAY, epsilon=_BATCH_NORM_EPSILON, center=True,
-            scale=True, training=is_training, fused=True)
+    inputs = batch_norm(inputs, is_training)
     inputs = tf.nn.relu(inputs)
     return inputs
 
