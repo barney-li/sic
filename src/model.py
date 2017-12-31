@@ -18,8 +18,8 @@ def model():
         correct_prediction = tf.equal(tf.argmax(labels, 1), tf.argmax(logits, 1))
         correct_prediction = tf.cast(correct_prediction, tf.float32)
         accuracy = tf.reduce_mean(correct_prediction, name='accuracy')
-        probability_ = tf.nn.softmax(logits, name='probability')
-        process = tf.Print(process, [process])
+        probability = tf.nn.softmax(logits, name='probability')
+        process = tf.Print(process, [process], message='current process: ', name='print')
         tf.summary.scalar('{} cost'.format(process), cost)
         tf.summary.scalar('{} accuracy'.format(process), accuracy)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
