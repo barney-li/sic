@@ -20,6 +20,7 @@ def predict(ckpt, model_path='../models', input_path='../data/test.json', output
         probability_t = graph.get_tensor_by_name('output/probability:0')
 
         for batch in range(int(input_size / batch_size) + 1):
+            print('inference batch {} '.format(batch))
             batch_start = batch * batch_size
             batch_end = (batch + 1) * batch_size
             if batch_start + batch_size >= input_size:

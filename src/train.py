@@ -5,15 +5,16 @@ import data_utils as utils
 import argparse
 import model
 
-def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia, regen_data, channels):
+def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia, regen_data, channels, test_size):
     tf.reset_default_graph()
     with tf.Graph().as_default():
         print('training')
         total_x, total_y = utils.get_train_data(regen_data=regen_data, no_ia=no_ia)
-        train_x = total_x[200:]
-        train_y = total_y[200:]
-        test_x = total_x[0:200]
-        test_y = total_y[0:200]
+        utils.shuffle_in_unison(total_x, total_y)
+        train_x = total_x[test_size:]
+        train_y = total_y[test_size:]
+        test_x = total_x[0:test_size]
+        test_y = total_y[0:test_size]
 
         with tf.Session() as sess:
             if ckpt is None:
@@ -45,6 +46,7 @@ def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia,
                 epoch_size = int(train_x.shape[0] / 64)
             print('start training, batch size {}, epoch size {}'.format(batch_size, epoch_size))
             for epoch in range(fold_size):
+                utils.shuffle_in_unison(train_x, train_y)
                 for batch in range(epoch_size):
                     x_batch = train_x[batch * batch_size: (batch + 1) * batch_size]
                     y_batch = train_y[batch * batch_size: (batch + 1) * batch_size]
@@ -88,5 +90,6 @@ if __name__ == '__main__':
     parser.add_argument('--no_ia', type=bool, default=False)
     parser.add_argument('--regen_data', type=bool, default=False)
     parser.add_argument('--channels', type=int, default=3)
+    parser.add_argument('--test_size', type=int, default=1000)
     args = parser.parse_args()
-    train(args.batch_size, args.epoch_size, args.fold_size, args.learning_rate, args.ckpt, args.logdir, args.no_ia, args.regen_data, args.channels)
+    train(args.batch_size, args.epoch_size, args.fold_size, args.learning_rate, args.ckpt, args.logdir, args.no_ia, args.regen_data, args.channels, args.test_size)

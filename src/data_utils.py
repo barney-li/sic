@@ -17,33 +17,44 @@ def norm(array_in):
         min_v = arr.min()
         arr = 255 * (arr - min_v) / (max_v - min_v)
         # very very tricky, if the data type is float, plt.imshow can only print images with format (C,H,W)
-        # and (H,W,C) will be print like a mess, after converting to int8 it can correctly print (H,W,C) format
-        array_out.append(arr.astype(np.int8))
+        # and (H,W,C) will be print like a mess, after converting to uint8 it can correctly print (H,W,C) format
+        array_out.append(arr.astype(np.uint8))
     return array_out
 
-def ia(images_in, labels_in):
+def run_all(images_in, labels_in, operation, rot_angle = 0):
     images_out = []
     labels_out = []
     cnt = 0
+    with tf.Session() as sess:
+        for image, label in zip(images_in, labels_in):
+            cnt += 1
+            print('process img {}'.format(cnt))
+            images_out.append(sess.run(operation, feed_dict={'image_in:0':image, 'rot_angle:0':rot_angle}))
+            labels_out.append(label)
+    return np.concatenate((images_in, images_out)), np.concatenate((labels_in, labels_out))
+
+def ia(images_in, labels_in):
+    img_shape = images_in[0].shape
     # put the graph in cpu, other wise it's just too slow to transmit data to gpu
     # back and forth through pci
     with tf.device('/cpu:0'):
-        image_in = tf.placeholder(tf.int8, images_in[0].shape)
+        image_in = tf.placeholder(tf.uint8, img_shape, name='image_in')
+        rot_angle = tf.placeholder(tf.float32, shape=(), name='rot_angle')
         up_down = tf.image.flip_up_down(image_in)
         left_right = tf.image.flip_left_right(image_in)
         rot90 = tf.image.rot90(image_in)
-    for image, label in zip(images_in, labels_in):
-        print('ia img {}...'.format(cnt))
-        cnt += 1
-        with tf.Session() as sess:
-            images_out.append(image)
-            labels_out.append(label)
-            images_out.append(sess.run(up_down, feed_dict={image_in: image}))
-            labels_out.append(label)
-            images_out.append(sess.run(left_right, feed_dict={image_in: image}))
-            labels_out.append(label)
-            images_out.append(sess.run(rot90, feed_dict={image_in: image}))
-            labels_out.append(label)
+        rot = tf.contrib.image.rotate(image_in, rot_angle)
+
+    images_out = images_in
+    labels_out = labels_in
+
+    images_out, labels_out = run_all(images_out, labels_out, up_down)
+    images_out, labels_out = run_all(images_out, labels_out, left_right)
+    images_out, labels_out = run_all(images_out, labels_out, rot90)
+    images_out, labels_out = run_all(images_out, labels_out, rot, 15)
+    images_out, labels_out = run_all(images_out, labels_out, rot, 30)
+    images_out, labels_out = run_all(images_out, labels_out, rot, 45)
+
     return np.array(images_out), np.array(labels_out)
 
 def get_test_data(path='../data/test.json', channels=3):
@@ -89,6 +100,12 @@ def get_train_data(path='../data/train.json', archive_id='', regen_data = False,
         np.save('../data/train_x_{}.npy'.format(archive_id), train_x)
         np.save('../data/train_y_{}.npy'.format(archive_id), train_y)
     return train_x, train_y
+
+def shuffle_in_unison(a, b):
+    rng_state = np.random.get_state()
+    np.random.shuffle(a)
+    np.random.set_state(rng_state)
+    np.random.shuffle(b)
 
 if __name__ == '__main__':
     get_train_data(regen_data=True, channels=3)
