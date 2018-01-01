@@ -5,7 +5,7 @@ import data_utils as utils
 import argparse
 import model
 
-def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia, regen_data):
+def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia, regen_data, channels):
     tf.reset_default_graph()
     with tf.Graph().as_default():
         print('training')
@@ -17,7 +17,7 @@ def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia,
 
         with tf.Session() as sess:
             if ckpt is None:
-                model.model()
+                model.model(channels)
                 sess.run(tf.global_variables_initializer())
             else:
                 print('loading ckpt {}'.format(ckpt))
@@ -87,5 +87,6 @@ if __name__ == '__main__':
     parser.add_argument('--logdir', type=str, default='../logs/default')
     parser.add_argument('--no_ia', type=bool, default=False)
     parser.add_argument('--regen_data', type=bool, default=False)
+    parser.add_argument('--channels', type=int, default=3)
     args = parser.parse_args()
-    train(args.batch_size, args.epoch_size, args.fold_size, args.learning_rate, args.ckpt, args.logdir, args.no_ia, args.regen_data)
+    train(args.batch_size, args.epoch_size, args.fold_size, args.learning_rate, args.ckpt, args.logdir, args.no_ia, args.regen_data, args.channels)

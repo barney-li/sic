@@ -5,8 +5,8 @@ import pandas as pd
 import argparse
 
 
-def predict(ckpt, model_path='../models', input_path='../data/test.json', output_path='../data/submission.csv', batch_size=64):
-    test_data, data_id = utils.get_test_data(input_path)
+def predict(ckpt, model_path='../models', input_path='../data/test.json', output_path='../data/submission.csv', batch_size=64, channels=3):
+    test_data, data_id = utils.get_test_data(input_path, channels)
     input_size = test_data.shape[0]
     predict_value = None
     with tf.Session() as sess:
@@ -40,8 +40,9 @@ def predict(ckpt, model_path='../models', input_path='../data/test.json', output
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='inference probability')
     parser.add_argument('--ckpt', type=str)
+    parser.add_argument('--channels', type=int, default=3)
     parser.add_argument('--model_path', type=str, default='../models')
     parser.add_argument('--input_path', type=str, default='../data/test.json')
     parser.add_argument('--output_path', type=str, default='../data/submission.csv')
     args = parser.parse_args()
-    predict(args.ckpt, args.model_path, args.input_path, args.output_path)
+    predict(args.ckpt, args.model_path, args.input_path, args.output_path, args.channels)
