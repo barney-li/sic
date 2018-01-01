@@ -33,7 +33,7 @@ def run_all(images_in, labels_in, operation, rot_angle = 0):
             labels_out.append(label)
     return np.concatenate((images_in, images_out)), np.concatenate((labels_in, labels_out))
 
-def ia(images_in, labels_in):
+def ia(images_in, labels_in, channels=3):
     img_shape = images_in[0].shape
     # put the graph in cpu, other wise it's just too slow to transmit data to gpu
     # back and forth through pci
@@ -44,6 +44,8 @@ def ia(images_in, labels_in):
         left_right = tf.image.flip_left_right(image_in)
         rot90 = tf.image.rot90(image_in)
         rot = tf.contrib.image.rotate(image_in, rot_angle)
+        rand_crop = tf.random_crop(image_in, (60, 60, channels))
+        rand_crop = tf.image.resize_images(rand_crop, [75, 75], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
     images_out = images_in
     labels_out = labels_in
@@ -54,6 +56,7 @@ def ia(images_in, labels_in):
     images_out, labels_out = run_all(images_out, labels_out, rot, 15)
     images_out, labels_out = run_all(images_out, labels_out, rot, 30)
     images_out, labels_out = run_all(images_out, labels_out, rot, 45)
+    images_out, labels_out = run_all(images_out, labels_out, rand_crop)
 
     return np.array(images_out), np.array(labels_out)
 
