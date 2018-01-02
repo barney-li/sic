@@ -40,10 +40,11 @@ def predict(ckpt, model_path='../models', input_path='../data/test.json', output
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='inference probability')
-    parser.add_argument('--ckpt', type=str)
+    parser.add_argument('--ckpt', type=int)
+    parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--channels', type=int, default=3)
     parser.add_argument('--model_path', type=str, default='../models')
     parser.add_argument('--input_path', type=str, default='../data/test.json')
     parser.add_argument('--output_path', type=str, default='../data/submission.csv')
     args = parser.parse_args()
-    predict(args.ckpt, args.model_path, args.input_path, args.output_path, args.channels)
+    predict(args.ckpt, args.model_path, args.input_path, args.output_path, args.batch_size, args.channels)
