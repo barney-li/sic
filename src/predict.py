@@ -34,8 +34,8 @@ def predict(ckpt, model_path='../models', input_path='../data/test.json', output
                 predict_value = np.concatenate((predict_value, probability))
         submit = pd.DataFrame()
         submit['id'] = data_id
-        submit['is_iceberg'] = round(predict_value[:, 1], 6)
-        submit.to_csv(output_path)
+        submit['is_iceberg'] = predict_value[:, 1]
+        submit.to_csv(output_path, index=False)
 
 
 if __name__ == '__main__':
