@@ -50,11 +50,11 @@ def ia(images_in, labels_in, channels=3):
     images_out = images_in
     labels_out = labels_in
 
-    images_out, labels_out = run_all(images_out, labels_out, up_down)
-    images_out, labels_out = run_all(images_out, labels_out, left_right)
+    #images_out, labels_out = run_all(images_out, labels_out, up_down)
+    #images_out, labels_out = run_all(images_out, labels_out, left_right)
     images_out, labels_out = run_all(images_out, labels_out, rot90)
     images_out, labels_out = run_all(images_out, labels_out, rot, 15)
-    images_out, labels_out = run_all(images_out, labels_out, rot, 30)
+    #images_out, labels_out = run_all(images_out, labels_out, rot, 30)
     images_out, labels_out = run_all(images_out, labels_out, rot, 45)
     images_out, labels_out = run_all(images_out, labels_out, rand_crop)
 

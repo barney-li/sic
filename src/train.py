@@ -20,11 +20,13 @@ def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia,
             if ckpt is None:
                 model.model(channels)
                 sess.run(tf.global_variables_initializer())
+                fold_start = 0
             else:
                 print('loading ckpt {}'.format(ckpt))
                 saver = tf.train.import_meta_graph('../models/{}.ckpt.meta'.format(ckpt))
                 saver.restore(sess, '../models/{}.ckpt'.format(ckpt))
                 print('ckpt loaded')
+                fold_start = ckpt + 1
 
             graph = sess.graph
             is_training_t = graph.get_tensor_by_name('input/is_training:0')
@@ -45,7 +47,7 @@ def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia,
             if epoch_size is None:
                 epoch_size = int(train_x.shape[0] / 64)
             print('start training, batch size {}, epoch size {}'.format(batch_size, epoch_size))
-            for epoch in range(fold_size):
+            for epoch in range(fold_start, fold_size):
                 utils.shuffle_in_unison(train_x, train_y)
                 for batch in range(epoch_size):
                     x_batch = train_x[batch * batch_size: (batch + 1) * batch_size]
@@ -85,7 +87,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--fold_size', type=int, default=1000)
     parser.add_argument('--learning_rate', type=float, default=1e-4)
-    parser.add_argument('--ckpt', type=str)
+    parser.add_argument('--ckpt', type=int)
     parser.add_argument('--logdir', type=str, default='../logs/default')
     parser.add_argument('--no_ia', type=bool, default=False)
     parser.add_argument('--regen_data', type=bool, default=False)
