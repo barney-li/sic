@@ -16,7 +16,7 @@ def norm(array_in):
         max_v = arr.max()
         min_v = arr.min()
         arr = 255 * (arr - min_v) / (max_v - min_v)
-        # very very tricky, if the data type is float, plt.imshow can only print images with format (C,H,W)
+        # very very tricky, if the data type is not ranged 0-255, plt.imshow can only print images with format (C,H,W)
         # and (H,W,C) will be print like a mess, after converting to uint8 it can correctly print (H,W,C) format
         array_out.append(arr.astype(np.uint8))
     return array_out
@@ -24,11 +24,8 @@ def norm(array_in):
 def run_all(images_in, labels_in, operation, rot_angle = 0):
     images_out = []
     labels_out = []
-    cnt = 0
     with tf.Session() as sess:
         for image, label in zip(images_in, labels_in):
-            cnt += 1
-            print('process img {}'.format(cnt))
             images_out.append(sess.run(operation, feed_dict={'image_in:0':image, 'rot_angle:0':rot_angle}))
             labels_out.append(label)
     return np.concatenate((images_in, images_out)), np.concatenate((labels_in, labels_out))
@@ -38,7 +35,7 @@ def ia(images_in, labels_in, channels=3):
     # put the graph in cpu, other wise it's just too slow to transmit data to gpu
     # back and forth through pci
     with tf.device('/cpu:0'):
-        image_in = tf.placeholder(tf.uint8, img_shape, name='image_in')
+        image_in = tf.placeholder(tf.float32, img_shape, name='image_in')
         rot_angle = tf.placeholder(tf.float32, shape=(), name='rot_angle')
         up_down = tf.image.flip_up_down(image_in)
         left_right = tf.image.flip_left_right(image_in)
@@ -50,37 +47,44 @@ def ia(images_in, labels_in, channels=3):
     images_out = images_in
     labels_out = labels_in
 
-    #images_out, labels_out = run_all(images_out, labels_out, up_down)
+    images_out, labels_out = run_all(images_out, labels_out, up_down)
     #images_out, labels_out = run_all(images_out, labels_out, left_right)
     images_out, labels_out = run_all(images_out, labels_out, rot90)
-    images_out, labels_out = run_all(images_out, labels_out, rot, 15)
+    #images_out, labels_out = run_all(images_out, labels_out, rot, 15)
     #images_out, labels_out = run_all(images_out, labels_out, rot, 30)
     images_out, labels_out = run_all(images_out, labels_out, rot, 45)
     images_out, labels_out = run_all(images_out, labels_out, rand_crop)
 
     return np.array(images_out), np.array(labels_out)
 
-def get_test_data(path='../data/test.json', channels=3):
+def get_test_data(path='../data/test.json', channels=3, norm_input = True, regen = False):
+    archive_x = '../data/test_x.npy'
+    archive_id = '../data/test_id.npy'
+    if (not regen) and os.path.isfile(archive_x) and os.path.isfile(archive_id):
+        return np.load(archive_x), np.load(archive_id)
     test_data = pd.read_json(path)
     band1 = np.array(test_data['band_1'].tolist())
     band2 = np.array(test_data['band_2'].tolist())
-    id = np.array(test_data['id'].tolist())
-    images = preprocess_image(band1, band2, channels)
-    return images, id
+    ids = np.array(test_data['id'].tolist())
+    images = preprocess_image(band1, band2, channels, norm_input)
+    np.save(archive_x, images)
+    np.save(archive_id, ids)
+    return images, ids
 
 
-def preprocess_image(band_1, band_2, channels):
-    band_1_norm = norm(band_1)
-    band_2_norm = norm(band_2)
+def preprocess_image(band_1, band_2, channels, norm_input):
+    if norm_input:
+        band_1 = norm(band_1)
+        band_2 = norm(band_2)
     if channels == 2:
-        band_comb = np.stack((band_1_norm, band_2_norm), axis=-1)
+        band_comb = np.stack((band_1, band_2), axis=-1)
     else:
-        band_comb = np.stack((band_1_norm, band_1_norm, band_2_norm), axis=-1)
+        band_comb = np.stack((band_1, band_1, band_2), axis=-1)
     band_comb = np.reshape(band_comb, (-1, 75, 75, channels))
     return band_comb
 
 
-def get_train_data(path='../data/train.json', archive_id='', regen_data = False, no_ia = False, channels = 3):
+def get_train_data(path='../data/train.json', archive_id='', regen_data = False, no_ia = False, channels = 3, norm_input = True):
     archive_x = '../data/train_x_{}.npy'.format(archive_id)
     archive_y = '../data/train_y_{}.npy'.format(archive_id)
     if (not regen_data) and os.path.isfile(archive_x) and os.path.isfile(archive_y):
@@ -91,13 +95,13 @@ def get_train_data(path='../data/train.json', archive_id='', regen_data = False,
         c1 = np.array(train_data['band_1'].tolist())
         c2 = np.array(train_data['band_2'].tolist())
         train_y = np.array(train_data['is_iceberg'].tolist())
-        train_x = preprocess_image(c1, c2, channels)
+        train_x = preprocess_image(c1, c2, channels, norm_input)
         # train_x = transpose_img(train_x)
         if not no_ia:
             raw_x = train_x.copy()
             format_x = np.reshape(raw_x, (-1, 75, 75, channels))
             print('image augmentation...')
-            train_x, train_y = ia(format_x, train_y)
+            train_x, train_y = ia(format_x, train_y, channels)
         print('formatting labels...')
         train_y = format_label(train_y)
         np.save('../data/train_x_{}.npy'.format(archive_id), train_x)
@@ -111,4 +115,10 @@ def shuffle_in_unison(a, b):
     np.random.shuffle(b)
 
 if __name__ == '__main__':
-    get_train_data(regen_data=True, channels=3)
+    parser = argparse.ArgumentParser(description='generate training data')
+    parser.add_argument('--channels', type=int, default=3)
+    parser.add_argument('--norm_input', type=bool, default=False)
+    args = parser.parse_args()
+    print(args)
+    get_train_data(regen_data=True, channels=args.channels, norm_input=args.norm_input)
+    get_test_data(channels=args.channels, norm_input=args.norm_input, regen=True)

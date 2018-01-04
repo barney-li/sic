@@ -5,8 +5,8 @@ import pandas as pd
 import argparse
 
 
-def predict(ckpt, model_path='../models', input_path='../data/test.json', output_path='../data/submission.csv', batch_size=64, channels=3):
-    test_data, data_id = utils.get_test_data(input_path, channels)
+def predict(ckpt, model_path='../models', input_path='../data/test.json', output_path='../data/submission.csv', batch_size=64, channels=3, norm_input=True, regen_input=True):
+    test_data, data_id = utils.get_test_data(input_path, channels, norm_input=norm_input, regen=regen_input)
     input_size = test_data.shape[0]
     predict_value = None
     with tf.Session() as sess:
@@ -46,5 +46,9 @@ if __name__ == '__main__':
     parser.add_argument('--model_path', type=str, default='../models')
     parser.add_argument('--input_path', type=str, default='../data/test.json')
     parser.add_argument('--output_path', type=str, default='../data/submission.csv')
+    parser.add_argument('--regen_input', type=bool, default=False)
+    parser.add_argument('--norm_input', type=bool, default=False)
     args = parser.parse_args()
-    predict(args.ckpt, args.model_path, args.input_path, args.output_path, args.batch_size, args.channels)
+    print(args)
+    predict(args.ckpt, args.model_path, args.input_path, args.output_path, args.batch_size, args.channels,
+            norm_input=args.norm_input, regen_input=args.regen_input)

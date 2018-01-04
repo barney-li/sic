@@ -94,4 +94,5 @@ if __name__ == '__main__':
     parser.add_argument('--channels', type=int, default=3)
     parser.add_argument('--test_size', type=int, default=1000)
     args = parser.parse_args()
+    print(args)
     train(args.batch_size, args.epoch_size, args.fold_size, args.learning_rate, args.ckpt, args.logdir, args.no_ia, args.regen_data, args.channels, args.test_size)
