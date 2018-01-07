@@ -108,7 +108,9 @@ def get_train_data(path='../data/train.json', archive_id='', regen_data = False,
         np.save('../data/train_y_{}.npy'.format(archive_id), train_y)
     return train_x, train_y
 
-def shuffle_in_unison(a, b):
+def shuffle_in_unison(a, b, seed):
+    if seed:
+        np.random.seed(seed)
     rng_state = np.random.get_state()
     np.random.shuffle(a)
     np.random.set_state(rng_state)

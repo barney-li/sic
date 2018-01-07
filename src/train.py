@@ -10,7 +10,8 @@ def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia,
     with tf.Graph().as_default():
         print('training')
         total_x, total_y = utils.get_train_data(regen_data=regen_data, no_ia=no_ia)
-        utils.shuffle_in_unison(total_x, total_y)
+        # config seed to make sure same distribution in test set
+        utils.shuffle_in_unison(total_x, total_y, 1)
         train_x = total_x[test_size:]
         train_y = total_y[test_size:]
         test_x = total_x[0:test_size]
@@ -48,7 +49,7 @@ def train(batch_size, epoch_size, fold_size, learning_rate, ckpt, logdir, no_ia,
                 epoch_size = int(train_x.shape[0] / 64)
             print('start training, batch size {}, epoch size {}'.format(batch_size, epoch_size))
             for epoch in range(fold_start, fold_size):
-                utils.shuffle_in_unison(train_x, train_y)
+                utils.shuffle_in_unison(train_x, train_y, None)
                 for batch in range(epoch_size):
                     x_batch = train_x[batch * batch_size: (batch + 1) * batch_size]
                     y_batch = train_y[batch * batch_size: (batch + 1) * batch_size]
